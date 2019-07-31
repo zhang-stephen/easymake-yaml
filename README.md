@@ -1,7 +1,7 @@
 # Preface of easymake-yaml
 
 #### Above All
-This will be a auto-make tool for c/c++ and other languages, and I would accomplish it when I am not busy.
+This will be a auto-make tool for c/c++, and I would accomplish it when I am not busy.
 
 The Project will be written by Python 3.6, meaning it would not support to run with Python 2.7 and older python version.
 
@@ -11,11 +11,11 @@ I do not make the decision what the compiling method is, but the project will us
 
 As well known, `yaml` is a friendly markable language to read and write, and python has a mature library to prase it. 
 
-I was enlighten by netplan when I configured the Static IP on Ubuntu Server 18.04 --- the netplan used `.yaml` as configuration file for the simplified syntax.
+I was enlighten by netplan when I configured the Static IP on Ubuntu Server 18.04 --- the netplan used `.yaml` as configuration file for the highlysimplified and free syntax.
 
 #### Why to Intend to Develop This Tool?
 
-Well, I am using another easymake tool named [emake](https://github.com/skywind3000/emake). It is a good tool for c/c++ and other languages, but too old is its fetal problem --- It even cannot run with python 3 runtime! So I need a totally new tool to alter it.
+Well, I am using another easymake tool named [emake](https://github.com/skywind3000/emake). It is a good tool for c/c++, but too old is its fetal problem --- It even cannot run with python 3 runtime! So I need a totally new tool to take it place.
 
 #### Compiling Method
 There are two methods to implement, I name one of them as cmake-style, and the other as manual-style.
