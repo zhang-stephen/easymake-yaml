@@ -12,6 +12,9 @@ import os
 import time
 import argparse as ap
 import sys
+import subprocess as sbp
+import re
+import pathlib
 
 # Decorator for ERR Handler
 def err_handler(printdebug=True):
@@ -62,106 +65,143 @@ def excp_handler(printdebug=True):
 	return inner1
 
 # the class to parse makefile yaml
-class makefile_yaml:
-	# Data Members
-	content = None,		# the yaml object to parse
-	cMode = None,		# compilation mode
-	cOutName = None,	# filename of binary file
-	cSources = [],		# source files
-	cIncludes = [],		# include paths
-	cLibPath = [],		# extra library paths
-	cLibLink = [],		# libraries to directly link
-	cISA = [],			# compiler flag to specify ISA
-	cFlags = [],		# other flags to compiler
-	cSubpath = [],		# Full path of Sub-Makefile
-	cTempPath = None,	# path to store temporary files
-	cWorkPath = None,	# the work path(pwd/cwd)
-	cExcmd = None		# extra command would be executed before compiling
-	
+class emkfile:
 
-	# Methods of compiler yaml class
+	'''
+	# @brief	default constructor
+	# @param 	fpath
+	#				the path of emakefile
+	# @retval	none
+	'''
 	@err_handler()
 	def __init__(self, fpath):
-		cont = open(fpath, 'r', encoding = "utf-8")
+		# get emakefile path(folder)
+		self.fpath = pathlib.Path(fpath)
 
+		# define some tags
+		self.__critical_tags = ('mode', 'src',)
+		self.__header = 'proj'
+
+		# Read the emakefile
+		self.yaml_read(fpath)
+
+		# Verification of file header
+		if self.__header not in self.content:
+			raise Exception('Error: Wrong File Header')
+	
+	'''
+	# @brief	read yaml
+	# @param 	fpath
+	#				as same as constructor
+	# @retval	none
+	'''
+	@err_handler()
+	def yaml_read(self, fpath):
+		cont = open(fpath, 'r', encoding = 'utf-8')
 		self.content = yaml.safe_load(cont.read())
-		self.cWorkPath = os.getcwd()
-
 		cont.close()
 
+	'''
+	# @brief	parse the necessary tags
+	# @param 	tag
+	#				string to parse
+	# @retval	none
+	'''
 	@err_handler()
-	def parse_mode(self):
-		if 'mode' in self.content['proj']:
-			self.cMode = self.content['proj']['mode']
+	def tag_critical(self, tag):
+		if tag in self.content[self.__header]:
+			return self.content[self.__header][tag]
 		else:
-			raise Exception("Error: No Compilation Mode Spcified!")
+			raise Exception("Error: Missing critical tags: " + tag)
 
-	def parse_output(self):
-		if 'out' in self.content['proj']:
-			self.cOutName = self.content['proj']['out']
-
-	@err_handler()
-	def parse_sources(self):
-		if 'src' in self.content['proj']:
-			self.cSources = self.content['proj']['src']
+	'''
+	# @brief	parse the unnecessary tags
+	# @param 	tag
+	#				string to parse
+	# @retval	none
+	'''
+	def tag_normal(self, tag):
+		if tag in self.content[self.__header]:
+			return self.content[self.__header][tag]
+	
+	'''
+	# @brief	reload of operator []
+	# @param 	index
+	#				index to access
+	# @retval	list
+	'''
+	# Operator [] Reload
+	def __getitem__(self, index):
+		if index in self.__critical_tags:
+			ret = self.tag_critical(index)
 		else:
-			raise(Exception("Error: No Source Files"))
+			ret =  self.tag_normal(index)
 
-	def parse_includes(self):
-		if 'inc' in self.content['proj']:
-			self.cIncludes = self.content['proj']['inc']
+		if type(ret) is not list:
+			return [ret]
+		else:
+			return ret
 	
-	def parse_libpath(self):
-		if 'lib' in self.content['proj']:
-			self.cLibPath = self.content['proj']['lib']
-
-	def parse_liblink(self):
-		if 'link' in self.content['proj']:
-			self.cLibLink = self.content['proj']['link']
+	'''
+	# @brief	get paths of sub-emakefile
+	# @param	none
+	# @retval	list or None
+	'''
+	def get_subproj(self):
+		if 'subpath' in self.content[self.__header]:
+			return  self['subpath']
+		else:
+			return None
 	
-	def parse_isa(self):
-		if 'isa' in self.content['proj']:
-			self.cISA = self.content['proj']['isa']
-	
-	def parse_flags(self):
-		if 'flags' in self.content['proj']:
-			self.cFlags = self.content['proj']['flags']
-	
-	def parse_subpath(self):
-		if 'subpath' in self.content['proj']:
-			self.cSubpath = self.content['proj']['subpath']
+	'''
+	# @brief	get list of source files
+	# @param 	none
+	# @retval	list
+	'''
+	def get_srcfiles(self):
+		return self['src']
 
-	def parse_excmd(self):
-		if 'excmd' in self.content['proj']:
-			self.cExcmd = self.content['proj']['excmd']
-
-	def parser(self):
-		# parse all key in yaml
-		self.parse_mode()
-		self.parse_output()
-		self.parse_sources()
-		self.parse_includes()
-		self.parse_liblink()
-		self.parse_libpath()
-		self.parse_isa()
-		self.parse_flags()
-		self.parse_subpath()
-		self.parse_excmd()
-
-# The class to parse the extra configuration yaml
-# this yaml can override the default settings in emake
-class configuration_yaml:
-
+class subemkfile(emkfile):
+	'''
+	# @brief	default constructor of subemkfile class
+	# @param 	fpath
+	#				the path of subpriority emakefile
+	# @retval	none
+	'''
 	@err_handler()
 	def __init__(self, fpath):
-		cont = open(fpath, 'r', encoding = "utf-8")
+		# get emakefile path(folder)
+		self.fpath = pathlib.Path(fpath)
 
-		self.content = yaml.safe_load(cont.read())
-		self.cWorkPath = os.getcwd()
+		# define some tags
+		self.__critical_tags = ('src',)
+		self.__header = 'subproj'
 
-		cont.close()
+		# Read the emakefile
+		self.yaml_read(fpath)
 
-config = makefile_yaml(sys.argv[1])
-config.parser()
+		# Verification of file header
+		if self.__header not in self.content:
+			raise Exception('Error: Wrong File Header')
+
+def main():
+
+	# build a most-prority project
+	xProject = emkfile(sys.argv[1])
+
+	# change the workspace
+	if xProject.fpath is not os.getcwd():
+		os.chdir(xProject.fpath.parent)
+
+	# generate list of Subprority Projects
+	subProjects = [subemkfile(x) for x in xProject.get_subproj()]
+	print(subProjects[0].fpath)
+
+	# pathlib test
+	print(pathlib.Path(r'../emake.py').is_file())
+		
+# For Test Case
+if __name__ == "__main__":
+	main()
 
 # EOF
