@@ -37,12 +37,11 @@ class utility:
 		target_dir = path(target_dir)
 
 		if target_dir.exists():
-			if not self.__is_dir():
-				raise TemporaryDirException()
+			pass
 
 class makefile_generator:
 	# the makefile generator class
-	def __init__():
+	def __init__(self):
 		# makefile generator initialized
 		self.mkf_path = path('./Makefile')	# the path to Makefile
 		with self.mkf_path.open(mode='w', encoding='UTF-8') as self.mkf:
