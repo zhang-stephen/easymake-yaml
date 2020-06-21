@@ -1,207 +1,50 @@
-#!/usr/bin/python
-# -*- coding: UTF-8 -*-
+#-*-coding: utf-8-*-
+#!/bin/sh
 
 '''
-# emake.py: easy-make tool based on yaml, running with Python 3.6.2 and later
-# Copyright (C) 2019 Stephen-Zhang, All Right Reserved
-# License: MIT(https://opensource.org/licenses/MIT)
+# @file		the easymake-yaml script written by python3
+# @date 	2020-06
+# @author	Stephen-Zhang(github.com/stark-zhang)
+# @lic		MIT and all right reserved
 '''
-# import the neccessry libraries
-import yaml
-import os
-import time
-import argparse as ap
-import sys
-import subprocess as sbp
-import re
-import pathlib
 
-# Decorator for ERR Handler
-def err_handler(printdebug=True):
+import yaml as yml
+from pathlib import Path as path
 
-	def inner1(f):
+'''
+# @brief	Exceptions while processing easymake configuration
+'''
+class TemporaryDirException(Exception):
+	def __init__(self, exception_no: int, details: str):
+		self.details = details
+		self.exception_no = exception_no
+		return
 
-		def inner2(*args, **kwargs):
-			try:
-				res = f(*args, **kwargs)
+class utility:
+	# the general utility class for path processing
+	def __init__(self, dir: str):
+		# initialize the utility to 
+		pass
 
-			except Exception as err:
-				if printdebug:
-					# import sys
-					info = sys.exc_info()[2].tb_frame.f_back
-					temp = "file:{}\nline:{}\tfunction:{}\terror:{}"
-					print(temp.format(info.f_code.co_filename, info.f_lineno, f.__name__, repr(err)))
-					res = None
+	def __is_dir(self, target_dir: path):
+		# 
+		return target_dir.is_dir() and target_dir != path('.svn') \
+			and target_dir != path('.git') and target_dir != path(".vscode")
 
-					exit() # if error ocurred, exit
+	def copy_path_structure(self, target_dir: str):
+		# check the directory spcified by 'int' property, make it if the dir does not exist, and
+		# copy the folder structure except 'int' value where the easymake configuration is
+		target_dir = path(target_dir)
 
-			return res    
+		if target_dir.exists():
+			if not self.__is_dir():
+				raise TemporaryDirException()
 
-		return inner2
+class makefile_generator:
+	# the makefile generator class
+	def __init__():
+		# makefile generator initialized
+		self.mkf_path = path('./Makefile')	# the path to Makefile
+		with self.mkf_path.open(mode='w', encoding='UTF-8') as self.mkf:
+			pass
 
-	return inner1
-
-# Decorator for exception handler
-def excp_handler(printdebug=True):
-
-	def inner1(f):
-
-		def inner2(*args, **kwargs):
-			try:
-				res = f(*args, **kwargs)
-
-			except Exception as err:
-				if printdebug:
-					# import sys
-					info = sys.exc_info()[2].tb_frame.f_back
-					temp = "file:{}\nline:{}\tfunction:{}\terror:{}"
-					print(temp.format(info.f_code.co_filename, info.f_lineno, f.__name__, repr(err)))
-					res = None
-
-			return res    
-
-		return inner2
-
-	return inner1
-
-# the class to parse makefile yaml
-class emkfile:
-
-	'''
-	# @brief	default constructor
-	# @param 	fpath
-	#				the path of emakefile
-	# @retval	none
-	'''
-	@err_handler()
-	def __init__(self, fpath):
-		# get emakefile path(folder)
-		self.fpath = pathlib.Path(fpath)
-
-		# define some tags
-		self.__critical_tags = ('mode', 'src',)
-		self.__header = 'proj'
-
-		# Read the emakefile
-		self.yaml_read(fpath)
-
-		# Verification of file header
-		if self.__header not in self.content:
-			raise Exception('Error: Wrong File Header')
-	
-	'''
-	# @brief	read yaml
-	# @param 	fpath
-	#				as same as constructor
-	# @retval	none
-	'''
-	@err_handler()
-	def yaml_read(self, fpath):
-		cont = open(fpath, 'r', encoding = 'utf-8')
-		self.content = yaml.safe_load(cont.read())
-		cont.close()
-
-	'''
-	# @brief	parse the necessary tags
-	# @param 	tag
-	#				string to parse
-	# @retval	none
-	'''
-	@err_handler()
-	def tag_critical(self, tag):
-		if tag in self.content[self.__header]:
-			return self.content[self.__header][tag]
-		else:
-			raise Exception("Error: Missing critical tags: " + tag)
-
-	'''
-	# @brief	parse the unnecessary tags
-	# @param 	tag
-	#				string to parse
-	# @retval	none
-	'''
-	def tag_normal(self, tag):
-		if tag in self.content[self.__header]:
-			return self.content[self.__header][tag]
-	
-	'''
-	# @brief	reload of operator []
-	# @param 	index
-	#				index to access
-	# @retval	list
-	'''
-	# Operator [] Reload
-	def __getitem__(self, index):
-		if index in self.__critical_tags:
-			ret = self.tag_critical(index)
-		else:
-			ret =  self.tag_normal(index)
-
-		if type(ret) is not list:
-			return [ret]
-		else:
-			return ret
-	
-	'''
-	# @brief	get paths of sub-emakefile
-	# @param	none
-	# @retval	list or None
-	'''
-	def get_subproj(self):
-		if 'subpath' in self.content[self.__header]:
-			return  self['subpath']
-		else:
-			return None
-	
-	'''
-	# @brief	get list of source files
-	# @param 	none
-	# @retval	list
-	'''
-	def get_srcfiles(self):
-		return self['src']
-
-class subemkfile(emkfile):
-	'''
-	# @brief	default constructor of subemkfile class
-	# @param 	fpath
-	#				the path of subpriority emakefile
-	# @retval	none
-	'''
-	@err_handler()
-	def __init__(self, fpath):
-		# get emakefile path(folder)
-		self.fpath = pathlib.Path(fpath)
-
-		# define some tags
-		self.__critical_tags = ('src',)
-		self.__header = 'subproj'
-
-		# Read the emakefile
-		self.yaml_read(fpath)
-
-		# Verification of file header
-		if self.__header not in self.content:
-			raise Exception('Error: Wrong File Header')
-
-def main():
-
-	# build a most-prority project
-	xProject = emkfile(sys.argv[1])
-
-	# change the workspace
-	if xProject.fpath is not os.getcwd():
-		os.chdir(xProject.fpath.parent)
-
-	# generate list of Subprority Projects
-	subProjects = [subemkfile(x) for x in xProject.get_subproj()]
-	print(subProjects[0].fpath)
-
-	# pathlib test
-	print(pathlib.Path(r'../emake.py').is_file())
-		
-# For Test Case
-if __name__ == "__main__":
-	main()
-
-# EOF
