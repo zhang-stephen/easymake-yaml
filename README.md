@@ -56,8 +56,8 @@ easymake-yaml会在项目根目录下自动搜索名为`easymake.yml`或者`emak
 `source`字段用于指定编译目标依赖的源文件，可以如同[Tutorial](#Tutorial)中一样罗列源文件，也可以指定源文件所在的目录，例如：
 ```yaml
 sources: 
-	- module1/
-	- main.cc
+    - module1/
+    - main.cc
 ```
 这是YAML语法中另一种数组的写法，可以看到该配置中我们直接把模块`module1`所在的目录写入配置中；源码目录必须以`/`结尾，否则会被忽略，建议使用相对路径形式，相对路径的起点即为项目根目录；在该目录中，以`.c/.C/.cc/.cxx/.cpp/.CPP`结尾的文件将被视为C/C++源文件
 
@@ -79,12 +79,12 @@ link: m, stdc++, filesystem, /path/to/lib/mylib.a
 `compiler`拥有几个子字段，用于配置编译器及其选项，这些子字段可以根据需要全部省去或保留部分：
 ```yaml
 compiler:
-	command:
-		cc: g++
-		ar: ar
-	flags: -std=c++17, -Wall, -O3, -g
-	inc: /path/to/XX/include
-	lib: /path/to/XX/libs
+    command:
+        cc: g++
+        ar: ar
+    flags: -std=c++17, -Wall, -O3, -g
+    inc: /path/to/XX/include
+    lib: /path/to/XX/libs
 ```
 可以看到，该字段拥有四个子字段：
 + `command`字段用于指示默认的编译器(`cc`)和打包工具(`ar`)，前者用于编译源文件和链接二进制文件，后者用于将`.o`文件打包为静态链接库；二者均可省去，如全部略去则`command`字段可不写
@@ -98,10 +98,10 @@ compiler:
 `extraCompiler`字段用于指示和C/C++的混编的代码的编译器，例如Assembly/Bison/Yacc等；该字段共拥有三个子字段：
 ```yaml
 extraCompiler:
-	- "language ID":
-		command: /path/to/yasm
-		flags: ~
-		sources: ~
+    - "language ID":
+        command: /path/to/yasm
+        flags: ~
+        sources: ~
 ```
 如上，该字段必须写成数组，即使只配置了一种混编语言也必须这样；唯一值得注意的是`"language ID"`字段，该子字段可以配置为任意值，例如`YASM`，那么受其影响，其下的三个子字段在Makefile生成的变量值分别为`EXTRA_COMPILER_YASM`、`EXTRA_COMPILER_YASM_FLAGS`和`EXTRA_COMPILER_YASM_SRCS`
 
