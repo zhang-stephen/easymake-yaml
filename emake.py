@@ -14,11 +14,23 @@ from pathlib import Path as path
 '''
 # @brief	Exceptions while processing easymake configuration
 '''
-class TemporaryDirException(Exception):
-	def __init__(self, exception_no: int, details: str):
+class EasyMakeBaseException(Exception):
+	# the baisc exception class for easymake-yaml
+	def __init__(self, excep_no: int, details: str):
 		self.details = details
-		self.exception_no = exception_no
-		return
+		self.excep_no = excep_no
+
+class TemporaryDirException(EasyMakeBaseException):
+	# the error about temporary folder
+	def __repr__(self):
+		self.excep_id = 'TemporaryDirException'
+		return  self.excep_id + ':'+ str(self.excep_no) + ', ' + self.details
+
+class DefaultConfigNotExistException(EasyMakeBaseException):
+	# will be raised when cannot find default configuration files
+	def __repr__(self):
+		self.excep_id = 'DefaultConfigNotExistException'
+		return self.excep_id + ':' + str(self.excep_no) + ', ' + self.details
 
 class utility:
 	# the general utility class for path processing
@@ -47,3 +59,27 @@ class makefile_generator:
 		with self.mkf_path.open(mode='w', encoding='UTF-8') as self.mkf:
 			pass
 
+'''
+# @brief	some functions
+'''
+def find_default_configuration() -> str:
+	# search the default configuration file named <easymake.yml> or <emake.yml>
+	default_config = path('./easymake.yml')
+
+	if default_config.exists() and default_config.is_file():
+		return str(default_config)
+
+	default_config = path('./emake.yml')
+
+	if default_config.exists() and default_config.is_file():
+		return str(default_config)
+
+	raise DefaultConfigNotExistException(0, "Error: Cannot find the default configuration")
+
+
+if __name__ == '__main__':
+	try:
+		print(find_default_configuration())
+
+	except EasyMakeBaseException as e:
+		print(repr(e))
