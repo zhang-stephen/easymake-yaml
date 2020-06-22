@@ -10,6 +10,8 @@
 
 import yaml as yml
 from pathlib import Path as path
+from getopt import getopt
+import sys
 
 '''
 # @brief	Exceptions while processing easymake configuration
