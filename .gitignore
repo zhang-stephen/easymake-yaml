@@ -1,3 +1,6 @@
+# for vscode configurations
 /.vscode
-/test
-xx.py
+
+# for compiled output in the test folder
+/test/*/build
+/test/*/output
