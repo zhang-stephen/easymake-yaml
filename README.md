@@ -113,6 +113,12 @@ extraCompiler:
 ##### subpath
 `subpath`是类似于CMake中`add_subdirectory()`的语法，目前具体实现还在研究中，随后将会更新
 
-至此所有主要的配置项都已介绍完毕了，如果需要更详尽的例子，请参考[测试用例](./test/)
+至此所有主要的配置项都已介绍完毕了，如果需要更详尽的例子，请参考[测试用例](./test/README.md)
 
 #### CLI Options
+
+#### Road Map
+
+#### Change Logs
+
+见[Change Logs](./docs/ChangeLog.md)
