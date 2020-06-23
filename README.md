@@ -108,7 +108,7 @@ extraCompiler:
 ##### int
 `int`字段用于指示编译时临时文件的存放目录，该目录由easymake-yaml而不是Make负责创建，在创建该目录时，该工具将会把项目根目录下的目录结构也复制到临时文件目录；如果不指定该值或者指定为项目根目录，则不会进行前述操作
 
-另外，如果该字段的值被指定为`.git`、`.svn`、`.vscode`等目录，则会引发错误，使Makefile的生成中止
+另外，如果该字段的值被指定为`.git`、`.svn`、`.vscode`等等以`.`开头的目录，则会引发错误，使Makefile的生成中止，此限制是为了避免和某些IDE/Editor的配置文件夹冲突
 
 ##### subpath
 `subpath`是类似于CMake中`add_subdirectory()`的语法，目前具体实现还在研究中，随后将会更新
@@ -116,8 +116,22 @@ extraCompiler:
 至此所有主要的配置项都已介绍完毕了，如果需要更详尽的例子，请参考[测试用例](./test/README.md)
 
 #### CLI Options
+该工具提供了较为丰富的CLI Options，便于配合yaml文件对生成Makefile的过程以及其他方面进行配置，详细的选项及取值见下表
+
+short | long | value | notes
+:---| :--- | :--- | :---
+-f | --file | string | 使用指定的配置文件覆盖默认配置文件
+-o | --output | string | 指定输出文件名
+-c | --check-compiler| boolean | 设置为`true`时检查**所有的`compiler`字段**指示的编译器是否存在，默认值为`false`
+-b | --build | int | 此选项存在时在生成Makfile后尝试执行编译，其后的数字为编译时使用的核心数量，默认值为1
+-e | --exec | string | 指定要使用的`make`工具，若不在环境变量内则要求完整路径 
+-n | --just-print | none | 该选项存在时，只打印要生成的Makefile而不进行生成
+-h/-? | --help | none | 该选项存在时，打印帮助内容并退出
+-v | --version | none | 该选项存在时，打印版本号并退出
 
 #### Road Map
+这是一份计划中的开发路线：
+TODO: 使用其他工具完成Road Map的绘制并添加至文档内
 
 #### Change Logs
 
