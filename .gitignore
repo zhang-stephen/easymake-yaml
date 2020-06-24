@@ -4,3 +4,7 @@
 # for compiled output in the test folder
 /test/*/build
 /test/*/output
+test/*/*.exe
+
+# for test python code 
+test/*.py
