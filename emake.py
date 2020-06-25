@@ -10,8 +10,16 @@
 
 import yaml as yml
 from pathlib import Path as path
-from getopt import getopt
-import sys
+from getopt import gnu_getopt
+import sys, os
+
+'''
+# @brief	some variables
+'''
+options = [
+		'f:o:cb:e:nh?v',
+		['file=', 'output=', 'check-complier', 'build=', 'exec=', 'just-print', 'help', 'version'],
+]	
 
 '''
 # @brief	Exceptions while processing easymake configuration
@@ -22,44 +30,18 @@ class EasyMakeBaseException(Exception):
 		self.details = details
 		self.excep_no = excep_no
 
+	def format(self, excep_name: str) -> str:
+		return  excep_name + ': '+ str(self.excep_no) + ', ' + self.details
+
 class TemporaryDirException(EasyMakeBaseException):
 	# the error about temporary folder
 	def __repr__(self):
-		self.excep_id = 'TemporaryDirException'
-		return  self.excep_id + ':'+ str(self.excep_no) + ', ' + self.details
+		return self.format('TemporaryDirException')
 
 class DefaultConfigNotExistException(EasyMakeBaseException):
 	# will be raised when cannot find default configuration files
 	def __repr__(self):
-		self.excep_id = 'DefaultConfigNotExistException'
-		return self.excep_id + ':' + str(self.excep_no) + ', ' + self.details
-
-class utility:
-	# the general utility class for path processing
-	def __init__(self, dir: str):
-		# initialize the utility to 
-		pass
-
-	def __is_dir(self, target_dir: path):
-		# 
-		return target_dir.is_dir() and target_dir != path('.svn') \
-			and target_dir != path('.git') and target_dir != path(".vscode")
-
-	def copy_path_structure(self, target_dir: str):
-		# check the directory spcified by 'int' property, make it if the dir does not exist, and
-		# copy the folder structure except 'int' value where the easymake configuration is
-		target_dir = path(target_dir)
-
-		if target_dir.exists():
-			pass
-
-class makefile_generator:
-	# the makefile generator class
-	def __init__(self):
-		# makefile generator initialized
-		self.mkf_path = path('./Makefile')	# the path to Makefile
-		with self.mkf_path.open(mode='w', encoding='UTF-8') as self.mkf:
-			pass
+		return self.format('DefaultConfigNotExistException')
 
 '''
 # @brief	some functions
@@ -78,10 +60,37 @@ def find_default_configuration() -> str:
 
 	raise DefaultConfigNotExistException(0, "Error: Cannot find the default configuration")
 
+def check_command_exists(os_name: str, command: str):
+	# check spcified command exists or not in the PATH
+	if '/' in command or '\\' in command:
+		# if '/' or '\' is in command, it may be in absolute path
+		return path(command).exists()
 
+	else:
+		# in MS Windows, the spliter of PATH is ';', in Unix-like, it's ':'
+		path_spliter = ';' if os_name == 'nt' else ':'
+
+		# and, `.exe` is neccessery suffix of complete command in MS Windows
+		command += '.exe' if os_name == 'nt' else ''
+
+		# search command in the PATH
+		for p in os.environ['PATH'].split(path_spliter):
+			if (path(p) / command).exists():
+				return True
+
+def usage():
+	print("Usage: %s [OPTIONS]..." % sys.argv[0])
+
+# Execute this script in shell
 if __name__ == '__main__':
 	try:
-		print(find_default_configuration())
+		# prase the CLI Options
+		opts, args = gnu_getopt(sys.argv[1:], options[0], options[1])
 
 	except EasyMakeBaseException as e:
 		print(repr(e))
+	
+	except Exception as e:
+		print(repr(e))
+
+# EOF

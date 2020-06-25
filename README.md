@@ -86,11 +86,13 @@ compiler:
     inc: /path/to/XX/include
     lib: /path/to/XX/libs
 ```
+
 可以看到，该字段拥有四个子字段：
 + `command`字段用于指示默认的编译器(`cc`)和打包工具(`ar`)，前者用于编译源文件和链接二进制文件，后者用于将`.o`文件打包为静态链接库；二者均可省去，如全部略去则`command`字段可不写
 在指示`cc`和`ar`的时候，可以使用相对路径或者绝对路径；如果要指定的工具位于环境变量内，可以只写命令名
 
 + `flags`字段为传递给`cc`字段的选项，`ar`使用的选项将由easymake-yaml直接指定
+
 + `inc`字段为要搜索的额外头文件目录，同理`lib`是要进行搜索的额外的库文件目录，二者均可指定多个有效值，且不必以`/`结尾
 **在日常使用中，如无必要，尽量使用`inc`代替`headers`**
 
@@ -118,16 +120,17 @@ extraCompiler:
 #### CLI Options
 该工具提供了较为丰富的CLI Options，便于配合yaml文件对生成Makefile的过程以及其他方面进行配置，详细的选项及取值见下表
 
-short | long | value | notes
-:---| :--- | :--- | :---
--f | --file | string | 使用指定的配置文件覆盖默认配置文件
--o | --output | string | 指定输出文件名
--c | --check-compiler| boolean | 设置为`true`时检查**所有的`compiler`字段**指示的编译器是否存在，默认值为`false`
--b | --build | int | 此选项存在时在生成Makfile后尝试执行编译，其后的数字为编译时使用的核心数量，默认值为1
--e | --exec | string | 指定要使用的`make`工具，若不在环境变量内则要求完整路径 
--n | --just-print | none | 该选项存在时，只打印要生成的Makefile而不进行生成
--h/-? | --help | none | 该选项存在时，打印帮助内容并退出
--v | --version | none | 该选项存在时，打印版本号并退出
+short | long | value | notes | status
+:---| :--- | :--- | :--- | :---:
+-f | --file | string | 使用指定的配置文件覆盖默认配置文件 | ongoing
+-o | --output | string | 指定输出文件名 | ongoing
+-c | --check-compiler| none | 该选项存在时检查**所有的`compiler`字段**指示的编译器是否存在 | ongoing
+-b | --build | int | 此选项存在时在生成Makfile后尝试执行编译，其后的数字为编译时使用的核心数量，默认值为1 | ongoing
+-e | --exec | string | 指定要使用的`make`工具，若不在环境变量内则要求完整路径 | ongoing
+-n | --just-print | none | 该选项存在时，只打印要生成的Makefile而不进行生成 | ongoing
+-l | --log | none | 该选项存在时，打印生成过程中的log | ongoing
+-h/-? | --help | none | 该选项存在时，打印帮助内容并退出 | available
+-v | --version | none | 该选项存在时，打印版本号并退出 | available
 
 #### Road Map
 这是一份计划中的开发路线：
