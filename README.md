@@ -59,7 +59,11 @@ sources:
     - module1/
     - main.cc
 ```
-这是YAML语法中另一种数组的写法，可以看到该配置中我们直接把模块`module1`所在的目录写入配置中；源码目录必须以`/`结尾，否则会被忽略，建议使用相对路径形式，相对路径的起点即为项目根目录；在该目录中，以`.c/.C/.cc/.cxx/.cpp/.CPP`结尾的文件将被视为C/C++源文件
+这是YAML语法中另一种数组的写法，可以看到该配置中我们直接把模块`module1`目录写入配置中；源码目录必须以`/`或者`**`结尾，否则会被忽略，建议使用相对路径形式，相对路径的起点即为项目根目录；在该目录中，以`.c/.C/.cc/.cxx/.cpp/.CPP`结尾的文件将被视为C/C++源文件
+
+如果`sources`中某个值被指定为`path/to/**`这样的形式，那么将对该目录下所有的子目录进行递归搜索，如果无法搜索到C/C++源文件则会生成一个空值，但是不会引发错误
+
+如果声明的目录不含`**`且以`/`结尾，那么只在该目录中进行源文件的查找；如果`**`出现在目录的开始或者中间，例如`path/to/**/moduleXX/`，那么会递归查找`moduleXX`目录并在该目录下查找源文件，而不会递归搜索`ModuleXX`目录；而且如果存在多个`moduleXX`目录，那么easymake-yaml将在第一次查找成功后停止查找
 
 ##### headers
 该字段用于指示要使用的头文件，在生成Makefile时只会被转换为`-i`选项，这意味着**不能**在该字段下添加额外的头文件搜索目录，同`sources`字段，可以在该字段下添加多个头文件：
@@ -80,7 +84,8 @@ link: m, stdc++, filesystem, /path/to/lib/mylib.a
 ```yaml
 compiler:
     command:
-        cc: g++
+        cc: gcc
+        cxx: g++
         ar: ar
     flags: -std=c++17, -Wall, -O3, -g
     inc: /path/to/XX/include
@@ -88,29 +93,37 @@ compiler:
 ```
 
 可以看到，该字段拥有四个子字段：
-+ `command`字段用于指示默认的编译器(`cc`)和打包工具(`ar`)，前者用于编译源文件和链接二进制文件，后者用于将`.o`文件打包为静态链接库；二者均可省去，如全部略去则`command`字段可不写
-在指示`cc`和`ar`的时候，可以使用相对路径或者绝对路径；如果要指定的工具位于环境变量内，可以只写命令名
++ `command`字段用于指示默认的编译器(`cc/cxx`)和打包工具(`ar`)，前者用于编译源文件和链接二进制文件，后者用于将`.o`文件打包为静态链接库；二者均可省去，如全部略去则`command`字段可不写
+在指示`cc/cxx`和`ar`的时候，可以使用相对路径或者绝对路径；如果要指定的工具位于环境变量内，可以只写命令名
 
-+ `flags`字段为传递给`cc`字段的选项，`ar`使用的选项将由easymake-yaml直接指定
++ `flags`字段为传递给`cc/cxx`字段的选项，如果需要更详细的设置，请单独声明`cflags/ccflags/arflags/ldflags`；这些字段中，`flags`的优先级最低——如果声明了`cflags`，那么`$(CC)`得到的参数将不会再来自于`flags`字段而是来自于`cflags`字段
 
-+ `inc`字段为要搜索的额外头文件目录，同理`lib`是要进行搜索的额外的库文件目录，二者均可指定多个有效值，且不必以`/`结尾
++ `inc`字段为要搜索的额外头文件目录，同理`lib`是要进行搜索的额外的库文件目录，二者均可指定多个有效值，且不必以`/`结尾；同时，如果这两个字段的值以`**`结尾，则对该值声明的目录下所有子目录进行递归搜索
 **在日常使用中，如无必要，尽量使用`inc`代替`headers`**
+
+另外，可以只声明`cc/cxx`的其中一个字段，其他字段，例如`ar/cxx`（假设声明了`cc`），则可以由`cc`推导生成；但是该推导不会在只声明`ar`字段时发生
+
+当`sources`字段中存在`.c/.C`后缀时，变量`$(CC)`才会被写入Makefile，同理`.cc/.cxx/.cpp/.CPP`存在时，`$(CXX)`才会被写入；当`mode`字段被声明为`lib`时，`$(AR)`才会被写入——即便`command`的所有子字段都被声明或者推导得出
+
+`command`字段中没有设置`ld`字段，因为最后目标文件的链接由`$(CC)`或者`$(CXX)`完成
 
 ##### extraCompiler
 `extraCompiler`字段用于指示和C/C++的混编的代码的编译器，例如Assembly/Bison/Yacc等；该字段共拥有三个子字段：
 ```yaml
 extraCompiler:
-    - "language ID":
+    "language ID":
         command: /path/to/yasm
         flags: ~
         sources: ~
 ```
-如上，该字段必须写成数组，即使只配置了一种混编语言也必须这样；唯一值得注意的是`"language ID"`字段，该子字段可以配置为任意值，例如`YASM`，那么受其影响，其下的三个子字段在Makefile生成的变量值分别为`EXTRA_COMPILER_YASM`、`EXTRA_COMPILER_YASM_FLAGS`和`EXTRA_COMPILER_YASM_SRCS`
+值得注意的是`"language ID"`字段，该子字段可以配置为任意值，例如`YASM`，那么受其影响，其下的三个子字段在Makefile生成的变量值分别为`EXTRA_COMPILER_YASM`、`EXTRA_COMPILER_YASM_FLAGS`和`EXTRA_COMPILER_YASM_SRCS`
 
 ##### int
 `int`字段用于指示编译时临时文件的存放目录，该目录由easymake-yaml而不是Make负责创建，在创建该目录时，该工具将会把项目根目录下的目录结构也复制到临时文件目录；如果不指定该值或者指定为项目根目录，则不会进行前述操作
 
 另外，如果该字段的值被指定为`.git`、`.svn`、`.vscode`等等以`.`开头的目录，则会引发错误，使Makefile的生成中止，此限制是为了避免和某些IDE/Editor的配置文件夹冲突
+
+**同时要注意，复制项目根目录下的目录结构时，所有以`.`开头的目录将被忽略**
 
 ##### subpath
 `subpath`是类似于CMake中`add_subdirectory()`的语法，目前具体实现还在研究中，随后将会更新

@@ -67,6 +67,10 @@ Make的基本执行逻辑就是检查目标（target）和依赖（pre-requestes
 
 但是无论如何，在Makefile中都将生成`$(OUTPUT_DIR)`变量，用于声明编译输出的目录
 
+在[README.md](../README.md#int)中提到，由easymake-yaml本身负责输出文件夹的创建以及项目目录结构的复制，此处拟使用`pathlib.Path.glob('**/')`以及**TRIE**完成
+
+使用TRIE的好处在于，可以进行DFS遍历（深度优先），TRIE中的每个分支都包含完整的路径信息，可以有效减少调用`pathlib.Path.mkdir()`的次数，也可以规避该函数可能引发的`FileExistsError`
+
 ##### `sources`字段（global）
 考虑到C/C++文件拥有很多不同的后缀名，例如`.c/.C/.cc/.cxx/.cpp/.CPP`等
 
@@ -75,16 +79,26 @@ Make的基本执行逻辑就是检查目标（target）和依赖（pre-requestes
 %.o: %.cc
 	$(CC) -c $(CFLAGS) $< -o $@ -MMD -MP -MF $*.d 
 ```
+当`sources`字段中存在`.c/.C`后缀时，变量`$(CC)`才会被写入Makefile，同理`.cc/.cxx/.cpp/.CPP`存在时，`$(CXX)`才会被写入；当`mode`字段被声明为`lib`时，`$(AR)`才会被写入——即便`command`的所有子字段都被声明或者推导得出
 
+`command`字段中没有设置`ld`字段，因为最后目标文件的链接由`$(CC)`或者`$(CXX)`完成
 显然针对所有后缀，这样一条隐式规则是不够用的，因此在生成Makefile之前，将对该字段的所有值进行遍历，取得其后缀列表并根据该列表生成相应的隐式规则
 
 至于为什么生成`.d`文件，详见[上文](#GCC中的依赖推导)
 
-##### `compiler::command::cc`字段
-该字段用于指示C语言编译器的调用命令，如果命令位于环境变量中则可省去路径
+##### `compiler::command`字段
+当`sources`字段中存在`.c/.C`后缀时，变量`$(CC)`才会被写入Makefile，同理`.cc/.cxx/.cpp/.CPP`存在时，`$(CXX)`才会被写入；当`mode`字段被声明为`lib`时，`$(AR)`才会被写入——即便`command`的所有子字段都被声明或者推导得出
 
-**是否应该允许自行指定c++编译器？开放该功能是否有意义？**
+当`sources`字段中存在`.c/.C`后缀时，变量`$(CC)`才会被写入Makefile，同理`.cc/.cxx/.cpp/.CPP`存在时，`$(CXX)`才会被写入；当`mode`字段被声明为`lib`时，`$(AR)`才会被写入——即便`command`的所有子字段都被声明或者推导得出
 
+`command`字段中没有设置`ld`字段，因为最后目标文件的链接由`$(CC)`或者`$(CXX)`完成
+
+#### 缓存Makefile
+在生成Makefile的时候，不希望从解析出第一条字段开始就打开Makefile并写入，这样如果中途发生异常，则文件对象不能被正常释放，可能出现无法预料的后果
+
+目前考虑的方案是，在解析数据的时候，将每条数据对应的Makefile Content按顺序写入某个或者多个list，以此充当文件缓存，当所有数据解析完毕后，将这些list写入最终的Makefile中即可
 
 #### 兼容性测试
+
+Based on Python 3.7.7(64-bit)
 待完成
