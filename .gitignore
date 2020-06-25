@@ -8,3 +8,8 @@ test/*/*.exe
 
 # for test python code 
 test/*.py
+
+# for python unit-test
+/__pycache__
+
+# EOF
