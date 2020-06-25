@@ -29,6 +29,5 @@ $(TARGET): $(OBJS)
 .PHONY: clean all
 
 clean:
-	@rm -rf $(OUTPUT_DIR)/*.o $(OUTPUT_DIR)/*.d $(OUTPUT_DIR)/crc32/*.o $(OUTPUT_DIR)/crc32/*.d
-
+	@rm -rf $(OUTPUT_DIR)/*.o $(OUTPUT_DIR)/*.d $(TARGET)
 # EOF
