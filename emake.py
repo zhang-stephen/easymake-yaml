@@ -11,6 +11,7 @@
 import yaml as yml
 from pathlib import Path as path
 from getopt import gnu_getopt
+from enum import Enum
 import sys, os, re
 
 '''
@@ -21,11 +22,21 @@ options = [
 		['file=', 'output=', 'check-complier', 'build=', 'exec=', 'just-print', 'help', 'version'],
 ]
 
-version = '0.0.1-alpha'
+_version = '0.0.1-alpha'
 
 '''
 # @brief	Exceptions while processing easymake configuration
 '''
+
+class SingleInstanceMetaClass(type):
+	'''
+	the metaclass to implement single-instance mode(without thread lock)
+	'''
+	def __call__(cls, *args, **kwargs):
+		if not hasattr(cls, "_instance"):
+			cls._instance = super(SingleInstanceMetaClass, cls).__call__(*args, **kwargs)
+		return cls._instance
+
 class EasyMakeBaseException(Exception):
 	'''
 	The basic exception class for easymake-yaml
@@ -56,11 +67,34 @@ class CommandStringIllegalException(EasyMakeBaseException):
 	def __repr__(self):
 		return self.format('CommandStringIllegalException')
 
-class default_complier:
+class CLIOptionOrArgumentException(EasyMakeBaseException):
+	'''
+	will be raised when CLI option is illegal
+	'''
+	def __repr__(self):
+		return self.format("CLIOptionOrArgumentException")
+
+class OptionState(metaclass = SingleInstanceMetaClass):
+	'''
+	A class to receive CLI Options Value
+	'''
+	def __init__(self):
+		self.flag_check_compiler = False
+		self.flag_just_print = False
+		self.flag_log = False
+		self.flag_update_self = False
+		self.flag_call_make = False 				# call make in the console after makefile generating or not
+		self.config_path = ''
+		self.mkfile_path = './Makefile'
+		self.mk_exec = 'make'						# the command of GNU make(default)/LLVM make
+		self.mk_jobs = 1							# the -j options used by make
+	
+
+class DefaultCompiler(metaclass = SingleInstanceMetaClass):
 	'''
 	A class to store information of property "compiler"
 	'''
-	class command:
+	class command(object):
 		'''
 		A sub-class to store sub-property 'command'
 		'''
@@ -138,26 +172,28 @@ class default_complier:
 			return r'\/?' + command_to_match + r'((?!\/).)*$'
 
 	def __init__(self):
-		self.command = self.command()			# sub-property: command
-		self.flags = None						# sub-property: flags(for C/C++ Compiler)
-		self.cflags = None						# sub-property: flags for c compiler
-		self.ccflags = None						# sub-property: flags for c++ compiler
-		self.arflags = None						# sub-property: flags archive tool
-		self.ldflags = None						# sub-property: flags ld
-		self.libpath = None						# sub-property: the path to search libraries(-L)
-		self.hpath = None						# sub-property: the path to search headers(-i)
-		self.links = None						# property in global: the libraries will be linked(-l)
-		self.headers = None						# property in global: the headers will be included(-I)
+		# all variables were declerated as such [value, bool], 
+		# and value is the data from yaml, bool is to indicate if this attribute exists or not
+		#self.command = [command(), False]			# sub-property: command
+		self.flags = [None, False]						# sub-property: flags(for C/C++ Compiler)
+		self.cflags = [None, False]						# sub-property: flags for c compiler
+		self.ccflags = [None, False]					# sub-property: flags for c++ compiler
+		self.arflags = [None, False]					# sub-property: flags archive tool
+		self.ldflags = [None, False]					# sub-property: flags ld
+		self.libpath = [None, False]					# sub-property: the path to search libraries(-L)
+		self.hpath = [None, False]						# sub-property: the path to search headers(-i)
+		self.links = [None, False]						# property in global: the libraries will be linked(-l)
+		self.headers = [None, False]					# property in global: the headers will be included(-I)
 
-
-class extra_compiler:
+class ExtraCompiler:
 	'''
 	A class to store information of property "extraCompiler"
+	this class will be wirtten into Makefile as explicit rules
 	'''
-	def __init__(self):
+	def __init__(self,):
 		pass
 
-class custom_target:
+class CustomTarget:
 	'''
 	A class to store information of property "customTarget"
 	'''
@@ -168,8 +204,12 @@ class Makefile:
 	'''
 	to receive infomation of yaml praser, and generate Makefile
 	'''
-	def __init__(self):
-		pass
+	def __init__(self, config_data: dict):
+		self.config = config_data					# primary data from *.yml file
+		self.mkfile_cache = []						# the mkfile generator cache, will be written into Makefile after prasing complete
+		# the followings are property definitions, they will be declerated as such [primary, prased, bool],
+		# and the 'primary' is the primary data from .yml, 'prased' is the data after processing, 
+		# and 'bool' is to indicate if this attribute exists or not
 
 '''
 # @brief	some functions
@@ -219,11 +259,67 @@ def copy_root_structure(output_dir: str):
 def usage():
 	print("Usage: %s [OPTIONS]..." % sys.argv[0])
 
+def version():
+	print(_version)
+
 # Execute this script in shell
 if __name__ == '__main__':
 	try:
-		# prase the CLI Options
+		# try to prase the CLI Options
 		opts, args = gnu_getopt(sys.argv[1:], options[0], options[1])
+		rx_cli_option = OptionState()
+
+		for opt, value in opts:
+			# print version info on the console
+			if opt in ('-v', '--version'):
+				version(), sys.exit(0)
+
+			# print usage info on the console
+			if opt in ('-h', '--help'):
+				usage(), sys.exit(0)
+
+			# prase CLI Options and store them to class
+			if opt in ('-f', '--file'):
+				rx_cli_option.config_path = value
+
+			if opt in ('-o', '--output'):
+				rx_cli_option.mkfile_path = value
+
+			if opt in ('-e', '--exec'):
+				rx_cli_option.mk_exec = value
+
+			if opt in ('-b', '--build'):
+				rx_cli_option.flag_call_make = True
+				rx_cli_option.mk_jobs = int(value)
+			
+			if opt in ('-l', '--log'):
+				rx_cli_option.flag_log = True
+
+			if opt in ('-n', '--just-print'):
+				rx_cli_option.flag_just_print = True
+
+			if opt in ('-c', '--check-compiler'):
+				rx_cli_option.flag_check_compiler = True
+	
+		# CLI Options prasing is complete, then configuration file prasing will be started
+
+		# read the .yml and transform it to python structure
+		# if '-f' or '--file' was read in CLI, the default configuration path will be re-written by user input
+		# the default encoding of .yml is UTF-8
+		true_config_path = find_default_configuration() if rx_cli_option.config_path == '' else rx_cli_option.config_path
+		with open(true_config_path, encoding='UTF-8', mode='r') as f:
+			primary_config_data = yml.safe_load(f)
+
+		
+		print(primary_config_data)
+
+		# instantiate class Makefile to receive and prase configuration
+		rx_mkfile_generator = Makefile(primary_config_data) 
+
+		# prase the primary configuration data
+
+
+
 
 	except EasyMakeBaseException as e:
 		print(repr(e))
