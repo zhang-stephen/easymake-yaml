@@ -1,0 +1,14 @@
+output: debug
+mode: exec
+platform: win32
+sources: main.cc, crc32/
+links: m, pthread, /path/to/mylib.a
+
+compiler:
+  command: 
+    cc: clang
+  
+  inc: 
+    - ./ 
+    - ./**
+    - /path/to/includes

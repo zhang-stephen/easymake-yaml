@@ -89,92 +89,91 @@ class OptionState(metaclass = SingleInstanceMetaClass):
 		self.mk_exec = 'make'						# the command of GNU make(default)/LLVM make
 		self.mk_jobs = 1							# the -j options used by make
 	
+class __command():
+	'''
+	A private class to store sub-property 'command' for 'compiler'
+	'''
+	def __init__(self):
+		'''
+		default value from GNU Compiler Collections(gcc.gnu.org)
+		'''
+		self.cc = 'gcc'
+		self.cxx = 'g++'
+		self.ar = 'ar'
+
+	def cc_praser(self, property: str, value: str):
+		'''
+		use one of sub-property(cc, cxx, ar) to deduce others command, via regex
+		do not deduce other commands from ar
+		'''
+		# the real filename of command may be started with '/' and must be ended without '/'.
+		# so we can use this rule to find where the real command is and deduce other commands
+
+		# deduce from property 'cc'
+		if property == 'cc':
+			self.cc = value
+			if 'gcc' in self.cc:
+				pattern = self._cc_re_compile('gcc')
+				matches = re.search(pattern, self.cc)
+				if matches is not None:
+					# get the correct sub-string which may be start with '/'
+					cc_to_match = matches.group(0).replace('gcc', 'g++')
+					ar_to_match = matches.group(0).replace('gcc', 'ar')
+
+					# replace them, and as same as following processes
+					self.cxx = re.sub(pattern, cc_to_match, self.cc)
+					self.ar = re.sub(pattern, ar_to_match, self.cc)
+
+			if 'clang' in self.cc:
+				pattern = self._cc_re_compile('clang')
+				matches = re.search(pattern, self.cc)
+				if matches is not None:
+					cc_to_match = matches.group(0).replace('clang', 'clang++')
+					ar_to_match = matches.group(0).replace('clang', 'llvm-ar')
+					self.cxx = re.sub(pattern, cc_to_match, self.cc)
+					self.ar = re.sub(pattern, ar_to_match, self.cc)
+
+			if matches is None:
+				raise CommandStringIllegalException(11, "Cannot find value of property \'%s\'" % property)
+			
+		# deduce from property 'cxx'
+		if property == 'cxx':
+			self.cc = value
+			if 'g++' in self.cc:
+				pattern = self._cc_re_compile('g++')
+				matches = re.search(pattern, self.cc)
+				if matches is not None:
+					cc_to_match = matches.group(0).replace('g++', 'gcc')
+					ar_to_match = matches.group(0).replace('g++', 'ar')
+					self.cxx = re.sub(pattern, cc_to_match, self.cc)
+					self.ar = re.sub(pattern, ar_to_match, self.cc)
+
+			if 'clang++' in self.cc:
+				pattern = self._cc_re_compile('clang++')
+				matches = re.search(pattern, self.cc)
+				if matches is not None:
+					cc_to_match = matches.group(0).replace('clang++', 'clang')
+					ar_to_match = matches.group(0).replace('clang++', 'llvm-ar')
+					self.cxx = re.sub(pattern, cc_to_match, self.cc)
+					self.ar = re.sub(pattern, ar_to_match, self.cc)
+
+			if matches is None:
+				raise CommandStringIllegalException(11, "Cannot find value of property \'%s\'" % property)
+
+	def _cc_re_compile(self, command_to_match: str) -> str:
+		'''
+		a private function to get a regex string
+		'''
+		return r'\/?' + command_to_match + r'((?!\/).)*$'
 
 class DefaultCompiler(metaclass = SingleInstanceMetaClass):
 	'''
 	A class to store information of property "compiler"
 	'''
-	class command(object):
-		'''
-		A sub-class to store sub-property 'command'
-		'''
-		def __init__(self):
-			'''
-			default value from GNU Compiler Collections(gcc.gnu.org)
-			'''
-			self.cc = 'gcc'
-			self.cxx = 'g++'
-			self.ar = 'ar'
-
-		def cc_praser(self, property: str, value: str):
-			'''
-			use one of sub-property(cc, cxx, ar) to deduce others command, via regex
-			do not deduce other commands from ar
-			'''
-			# the real filename of command may be started with '/' and must be ended without '/'.
-			# so we can use this rule to find where the real command is and deduce other commands
-
-			# deduce from property 'cc'
-			if property == 'cc':
-				self.cc = value
-				if 'gcc' in self.cc:
-					pattern = self._cc_re_compile('gcc')
-					matches = re.search(pattern, self.cc)
-					if matches is not None:
-						# get the correct sub-string which may be start with '/'
-						cc_to_match = matches.group(0).replace('gcc', 'g++')
-						ar_to_match = matches.group(0).replace('gcc', 'ar')
-
-						# replace them, and as same as following processes
-						self.cxx = re.sub(pattern, cc_to_match, self.cc)
-						self.ar = re.sub(pattern, ar_to_match, self.cc)
-
-				if 'clang' in self.cc:
-					pattern = self._cc_re_compile('clang')
-					matches = re.search(pattern, self.cc)
-					if matches is not None:
-						cc_to_match = matches.group(0).replace('clang', 'clang++')
-						ar_to_match = matches.group(0).replace('clang', 'llvm-ar')
-						self.cxx = re.sub(pattern, cc_to_match, self.cc)
-						self.ar = re.sub(pattern, ar_to_match, self.cc)
-
-				if matches is None:
-					raise CommandStringIllegalException(11, "Cannot find value of property \'%s\'" % property)
-				
-			# deduce from property 'cxx'
-			if property == 'cxx':
-				self.cc = value
-				if 'g++' in self.cc:
-					pattern = self._cc_re_compile('g++')
-					matches = re.search(pattern, self.cc)
-					if matches is not None:
-						cc_to_match = matches.group(0).replace('g++', 'gcc')
-						ar_to_match = matches.group(0).replace('g++', 'ar')
-						self.cxx = re.sub(pattern, cc_to_match, self.cc)
-						self.ar = re.sub(pattern, ar_to_match, self.cc)
-
-				if 'clang++' in self.cc:
-					pattern = self._cc_re_compile('clang++')
-					matches = re.search(pattern, self.cc)
-					if matches is not None:
-						cc_to_match = matches.group(0).replace('clang++', 'clang')
-						ar_to_match = matches.group(0).replace('clang++', 'llvm-ar')
-						self.cxx = re.sub(pattern, cc_to_match, self.cc)
-						self.ar = re.sub(pattern, ar_to_match, self.cc)
-
-				if matches is None:
-					raise CommandStringIllegalException(11, "Cannot find value of property \'%s\'" % property)
-
-		def _cc_re_compile(self, command_to_match: str) -> str:
-			'''
-			a private function to get a regex string
-			'''
-			return r'\/?' + command_to_match + r'((?!\/).)*$'
-
 	def __init__(self):
 		# all variables were declerated as such [value, bool], 
 		# and value is the data from yaml, bool is to indicate if this attribute exists or not
-		#self.command = [command(), False]			# sub-property: command
+		self.command = [None, False]					# sub-property: command
 		self.flags = [None, False]						# sub-property: flags(for C/C++ Compiler)
 		self.cflags = [None, False]						# sub-property: flags for c compiler
 		self.ccflags = [None, False]					# sub-property: flags for c++ compiler
@@ -203,13 +202,56 @@ class CustomTarget:
 class Makefile:
 	'''
 	to receive infomation of yaml praser, and generate Makefile
+	if property 'subpath' exists, we need serveral of this class to store and prase
 	'''
 	def __init__(self, config_data: dict):
-		self.config = config_data					# primary data from *.yml file
-		self.mkfile_cache = []						# the mkfile generator cache, will be written into Makefile after prasing complete
+		self.config = config_data						# primary data from *.yml file
+		self.mkfile_cache = []							# the mkfile generator cache, will be written into Makefile after prasing complete
 		# the followings are property definitions, they will be declerated as such [primary, prased, bool],
 		# and the 'primary' is the primary data from .yml, 'prased' is the data after processing, 
-		# and 'bool' is to indicate if this attribute exists or not
+		# and 'bool' is to indicate if this attribute exists or not(the g_ means this property is in root scope)
+		self.r_sources = [None, None, False]
+		self.r_default_compiler = [None, None, False]
+		self.r_int_dir = [None, './', False]			# compiler output dir, the ./(the project root dir) is in the default
+		self.r_subpath = [None, None, False]			# in the default, the 'subpath' does not exist and not need to be prased
+		self.r_extra_compile = [[], [], False]			# property 'extraCompiler' will be put in a list
+
+	def default_compiler_praser(self):
+		'''
+		take out info about default compiler from primary data
+		'''
+		# confirm whether r_default_compiler shoule be initialized
+		_requests = [_key in self.config.keys() for _key in ['links', 'headers' 'compiler']]
+		if True in _requests:
+			self.r_default_compiler[2] = True
+			self.r_default_compiler[0] = DefaultCompiler()
+
+			# take out effective data
+			if 'links' in self.config.keys():
+				self.r_default_compiler[0].links[0] = self.config['links']
+				self.r_default_compiler[0].links[1] = True
+
+			if 'headers' in self.config.keys():
+				self.r_default_compiler[0].headers[0] = self.config['headers']
+				self.r_default_compiler[0].headers[1] = True
+
+			if 'compiler' in self.config.keys():
+				# prase sub-property of 'compiler'
+				if 'libs' in self.config['compiler']:
+					self.r_default_compiler[0].libs[0] = self.config['compiler']['libs']
+					self.r_default_compiler[0].libs[1] = True
+
+				if 'inc' in self.config['compiler']:
+					self.r_default_compiler[0].inc[0] = self.config['compiler']['inc']
+					self.r_default_compiler[0].inc[1] = True
+
+				if 'command' in self.config['compiler']:			# special 
+					self.r_default_compiler[0].command[0] = __command()
+					self.r_default_compiler[0].command[1] = True
+
+					# TODO: prase the property 'command'
+		else:
+			return
 
 '''
 # @brief	some functions
@@ -310,13 +352,13 @@ if __name__ == '__main__':
 		with open(true_config_path, encoding='UTF-8', mode='r') as f:
 			primary_config_data = yml.safe_load(f)
 
-		
-		print(primary_config_data)
-
 		# instantiate class Makefile to receive and prase configuration
 		rx_mkfile_generator = Makefile(primary_config_data) 
 
 		# prase the primary configuration data
+		rx_mkfile_generator.default_compiler_praser()
+
+		print(1926)
 
 
 
