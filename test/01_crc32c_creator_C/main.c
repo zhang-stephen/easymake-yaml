@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 	{
 		buffer_real_size = fread(buffer, sizeof(uint8_t), 4096u, f);
 
-		if(buffer_real_size != 4096u && feof(f) != 0)
+		if(buffer_real_size != 4096u && feof(f) == 0)
 		{
 			printf("Error: Read file Failed!\n");
 
@@ -47,7 +47,7 @@ int main(int argc, char** argv)
 
 		crc_value = crc32c_sw(crc_value, buffer, buffer_real_size);
 
-		if(feof(f) == 0) { break; }
+		if(feof(f) != 0) { break; }
 	}
 
 	printf("The crc value of \"%s\" is 0x%x \n", argv[1], crc_value);
