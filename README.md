@@ -103,9 +103,7 @@ compiler:
 
 另外，可以只声明`cc/cxx`的其中一个字段，其他字段，例如`ar/cxx`（假设声明了`cc`），则可以由`cc`推导生成；但是该推导不会在只声明`ar`字段时发生
 
-当`sources`字段中存在`.c/.C`后缀时，变量`$(CC)`才会被写入Makefile，同理`.cc/.cxx/.cpp/.CPP`存在时，`$(CXX)`才会被写入；当`mode`字段被声明为`lib`时，`$(AR)`才会被写入——即便`command`的所有子字段都被声明或者推导得出
-
-`command`字段中没有设置`ld`字段，因为最后目标文件的链接由`$(CC)`或者`$(CXX)`完成
+`command`字段中没有设置`ld`字段，因为最后目标文件(`exec`)的链接由`$(CC)`或者`$(CXX)`完成
 
 ##### extraCompiler
 `extraCompiler`字段用于指示和C/C++的混编的代码的编译器，例如Assembly/Bison/Yacc等；该字段共拥有三个子字段：
