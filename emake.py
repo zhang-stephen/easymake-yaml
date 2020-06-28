@@ -10,19 +10,9 @@
 
 import yaml as yml
 from pathlib import Path as path
-from getopt import gnu_getopt
+from getopt import getopt
 from enum import Enum
 import sys, os, re
-
-'''
-# @brief	some variables
-'''
-options = [
-		'f:o:cb:e:nh?v',
-		['file=', 'output=', 'check-complier', 'build=', 'exec=', 'just-print', 'help', 'version'],
-]
-
-_version = '0.0.1-alpha'
 
 '''
 # @brief	Exceptions while processing easymake configuration
@@ -74,22 +64,21 @@ class CLIOptionOrArgumentException(EasyMakeBaseException):
 	def __repr__(self):
 		return self.format("CLIOptionOrArgumentException")
 
-class OptionState(metaclass = SingleInstanceMetaClass):
+class OptionState:
 	'''
-	A class to receive CLI Options Value
+	A class to receive CLI Options Value(using static member variables)
 	'''
-	def __init__(self):
-		self.flag_check_compiler = False
-		self.flag_just_print = False
-		self.flag_log = False
-		self.flag_update_self = False
-		self.flag_call_make = False 				# call make in the console after makefile generating or not
-		self.config_path = ''
-		self.mkfile_path = './Makefile'
-		self.mk_exec = 'make'						# the command of GNU make(default)/LLVM make
-		self.mk_jobs = 1							# the -j options used by make
+	flag_check_compiler = False
+	flag_just_print = False
+	flag_log = False
+	flag_update_self = False
+	flag_call_make = False 				# call make in the console after makefile generating or not
+	config_path = ''
+	mkfile_path = './Makefile'
+	mk_exec = 'make'					# the command of GNU make(default)/LLVM make
+	mk_jobs = 1							# the -j options used by make
 	
-class __command():
+class Command:
 	'''
 	A private class to store sub-property 'command' for 'compiler'
 	'''
@@ -101,17 +90,16 @@ class __command():
 		self.cxx = 'g++'
 		self.ar = 'ar'
 
-	def cc_praser(self, property: str, value: str):
+	def cc_deduce(self, property: str):
 		'''
 		use one of sub-property(cc, cxx, ar) to deduce others command, via regex
 		do not deduce other commands from ar
 		'''
 		# the real filename of command may be started with '/' and must be ended without '/'.
-		# so we can use this rule to find where the real command is and deduce other commands
+		# so we can use this rule to find where the real command is and to deduce other commands
 
 		# deduce from property 'cc'
 		if property == 'cc':
-			self.cc = value
 			if 'gcc' in self.cc:
 				pattern = self._cc_re_compile('gcc')
 				matches = re.search(pattern, self.cc)
@@ -138,7 +126,6 @@ class __command():
 			
 		# deduce from property 'cxx'
 		if property == 'cxx':
-			self.cc = value
 			if 'g++' in self.cc:
 				pattern = self._cc_re_compile('g++')
 				matches = re.search(pattern, self.cc)
@@ -171,18 +158,19 @@ class DefaultCompiler(metaclass = SingleInstanceMetaClass):
 	A class to store information of property "compiler"
 	'''
 	def __init__(self):
-		# all variables were declerated as such [value, bool], 
-		# and value is the data from yaml, bool is to indicate if this attribute exists or not
-		self.command = [None, False]					# sub-property: command
-		self.flags = [None, False]						# sub-property: flags(for C/C++ Compiler)
-		self.cflags = [None, False]						# sub-property: flags for c compiler
-		self.ccflags = [None, False]					# sub-property: flags for c++ compiler
-		self.arflags = [None, False]					# sub-property: flags archive tool
-		self.ldflags = [None, False]					# sub-property: flags ld
-		self.libpath = [None, False]					# sub-property: the path to search libraries(-L)
-		self.hpath = [None, False]						# sub-property: the path to search headers(-i)
-		self.links = [None, False]						# property in global: the libraries will be linked(-l)
-		self.headers = [None, False]					# property in global: the headers will be included(-I)
+		# the followings are property definitions, they will be declerated as such [primary, prased, bool],
+		# and the 'primary' is the primary data from .yml, 'prased' is the data after processing(will be written into Makefile), 
+		# and 'bool' is to indicate if this attribute exists or not(the g_ means this property is in root scope)
+		self.command = [None, None, False]					# sub-property: command
+		self.flags = [None, None, False]					# sub-property: flags(for C/C++ Compiler)
+		self.cflags = [None, None, False]					# sub-property: flags for c compiler
+		self.ccflags = [None, None, False]					# sub-property: flags for c++ compiler
+		self.arflags = [None, None, False]					# sub-property: flags archive tool
+		self.ldflags = [None, None, False]					# sub-property: flags ld
+		self.libpath = [None, None, False]					# sub-property: the path to search libraries(-L)
+		self.hpath = [None, None, False]					# sub-property: the path to search headers(-I)
+		self.links = [None, None, False]					# property in global: the libraries will be linked(-l)
+		self.headers = [None, None, False]					# property in global: the headers will be included(-i)
 
 class ExtraCompiler:
 	'''
@@ -208,13 +196,20 @@ class Makefile:
 		self.config = config_data						# primary data from *.yml file
 		self.mkfile_cache = []							# the mkfile generator cache, will be written into Makefile after prasing complete
 		# the followings are property definitions, they will be declerated as such [primary, prased, bool],
-		# and the 'primary' is the primary data from .yml, 'prased' is the data after processing, 
+		# and the 'primary' is the primary data from .yml, 'prased' is the data after processing(will be written into Makefile), 
 		# and 'bool' is to indicate if this attribute exists or not(the g_ means this property is in root scope)
-		self.r_sources = [None, None, False]
+		self.r_sources = [None, None, False] 
 		self.r_default_compiler = [None, None, False]
 		self.r_int_dir = [None, './', False]			# compiler output dir, the ./(the project root dir) is in the default
 		self.r_subpath = [None, None, False]			# in the default, the 'subpath' does not exist and not need to be prased
 		self.r_extra_compile = [[], [], False]			# property 'extraCompiler' will be put in a list
+		self.r_platform = [None, None, False]			# property 'platform' to assitant some operations
+		self.r_output = [None, 'main', True]			# property 'output' to sepcify output filename, default is 'main'
+		self.r_mode = [None, None, False]				# property 'output' to sepcify compiling mode
+
+
+	def compile_mode_praser(self):
+		pass
 
 	def default_compiler_praser(self):
 		'''
@@ -242,113 +237,161 @@ class Makefile:
 					self.r_default_compiler[0].libs[1] = True
 
 				if 'inc' in self.config['compiler']:
-					self.r_default_compiler[0].inc[0] = self.config['compiler']['inc']
-					self.r_default_compiler[0].inc[1] = True
+					self.r_default_compiler[0].hpath[0] = self.config['compiler']['inc']
+					self.r_default_compiler[0].hpath[1] = True
 
 				if 'command' in self.config['compiler']:			# special 
-					self.r_default_compiler[0].command[0] = __command()
+					self.r_default_compiler[0].command[0] = Command()
 					self.r_default_compiler[0].command[1] = True
 
-					# TODO: prase the property 'command'
+					_requests = {_key: (_key in self.config['compiler']['command'].keys()) for _key in ('cc', 'cxx', 'ar')}
+					if _requests['cc']:
+						self.r_default_compiler[0].command[0].cc = self.config['compiler']['command']['cc']
+
+					if _requests['cxx']:
+						self.r_default_compiler[0].command[0].cxx = self.config['compiler']['command']['cxx']
+
+					if _requests['ar']:
+						self.r_default_compiler[0].command[0].ar = self.config['compiler']['command']['ar']
+
+					# if there is only 'cc' or 'cxx, then deduce other command
+					if _requests['cc'] and not _requests['cxx'] and not _requests['ar']:
+						self.r_default_compiler[0].command[0].cc_deduce('cc')
+
+					if _requests['cxx'] and not _requests['cc'] and not _requests['ar']:
+						self.r_default_compiler[0].command[0].cc_deduce('cxx')
+
+			utility.log('cc: %s, cxx: %s, ar: %s' % (self.r_default_compiler[0].command[0].cc, self.r_default_compiler[0].command[0].cxx, self.r_default_compiler[0].command[0].ar))
+
 		else:
 			return
 
 '''
 # @brief	some functions
 '''
-def find_default_configuration() -> str:
-	'''	
-	search the default configuration file named <easymake.yml> or <emake.yml>
+class utility:
 	'''
-	default_config = path('./easymake.yml')
-
-	if default_config.exists() and default_config.is_file():
-		return str(default_config)
-
-	default_config = path('./emake.yml')
-
-	if default_config.exists() and default_config.is_file():
-		return str(default_config)
-
-	raise DefaultConfigNotExistException(0, "Error: Cannot find the default configuration")
-
-def check_command_exists(os_name: str, command: str) -> bool:
+	a class including all utility(tool) functions, 
 	'''
-	check spcified command exists or not in the PATH
-	'''
-	if '/' in command or '\\' in command:
-		# if '/' or '\' is in command, it may be in absolute path
-		return path(command).exists()
 
-	else:
-		# in MS Windows, the spliter of PATH is ';', in Unix-like, it's ':'
-		path_spliter = ';' if os_name == 'nt' else ':'
+	options = [
+		'lf:o:cb:e:nh?v',
+		['log', 'file=', 'output=', 'check-complier', 'build=', 'exec=', 'just-print', 'help', 'version'],
+	]
 
-		# and, `.exe` is neccessery suffix of complete command in MS Windows
-		command += '.exe' if os_name == 'nt' else ''
+	_version = '0.0.1-alpha'
 
-		# search command in the PATH
-		for p in os.environ['PATH'].split(path_spliter):
-			if (path(p) / command).exists():
-				return True
+	@staticmethod
+	def find_default_configuration() -> str:
+		'''	
+		search the default configuration file named <easymake.yml> or <emake.yml>
+		'''
+		default_config = path('./easymake.yml')
 
-def copy_root_structure(output_dir: str):
-	'''
-	copy structure of project root to output directory(the value of property 'int')
-	'''
-	pass
+		if default_config.exists() and default_config.is_file():
+			return str(default_config)
 
-def usage():
-	print("Usage: %s [OPTIONS]..." % sys.argv[0])
+		default_config = path('./emake.yml')
 
-def version():
-	print(_version)
+		if default_config.exists() and default_config.is_file():
+			return str(default_config)
+
+		raise DefaultConfigNotExistException(0, "Error: Cannot find the default configuration")
+
+	@staticmethod
+	def check_command_exists(os_name: str, command: str) -> bool:
+		'''
+		check spcified command exists or not in the PATH
+		'''
+		if '/' in command or '\\' in command:
+			# if '/' or '\' is in command, it may be in absolute path
+			return path(command).exists()
+
+		else:
+			# in MS Windows, the spliter of PATH is ';', in Unix-like, it's ':'
+			path_spliter = ';' if os_name == 'nt' else ':'
+
+			# and, `.exe` is neccessery suffix of complete command in MS Windows
+			command += '.exe' if os_name == 'nt' else ''
+
+			# search command in the PATH
+			for p in os.environ['PATH'].split(path_spliter):
+				if (path(p) / command).exists():
+					return True
+	
+	@staticmethod
+	def copy_root_structure(output_dir: str):
+		'''
+		copy structure of project root to output directory(the value of property 'int')
+		'''
+		pass
+	
+	@staticmethod
+	def usage():
+		print("Usage: %s [OPTIONS]..." % sys.argv[0])
+
+	@staticmethod
+	def version():
+		print(utility._version)
+
+	@staticmethod
+	def log(*values):
+		'''
+		a function to print content of param detail and other information
+		'''
+		if OptionState.flag_log:
+			print(values)
 
 # Execute this script in shell
 if __name__ == '__main__':
 	try:
 		# try to prase the CLI Options
-		opts, args = gnu_getopt(sys.argv[1:], options[0], options[1])
-		rx_cli_option = OptionState()
+
+		# if there's no cli option, print help info and exit
+		if len(sys.argv) <= 1:
+			utility.usage(), sys.exit(0)
+		
+		# prase cli options
+		opts, args = getopt(sys.argv[1:], utility.options[0], utility.options[1])
 
 		for opt, value in opts:
 			# print version info on the console
-			if opt in ('-v', '--version'):
-				version(), sys.exit(0)
+			if opt in ('v', '-v', '--version'):
+				utility.version(), sys.exit(0)
 
 			# print usage info on the console
-			if opt in ('-h', '--help'):
-				usage(), sys.exit(0)
+			if opt in ('h', '-h', '--help'):
+				utility.usage(), sys.exit(0)
 
 			# prase CLI Options and store them to class
-			if opt in ('-f', '--file'):
-				rx_cli_option.config_path = value
+			if opt in ('f', '-f', '--file'):
+				OptionState.config_path = value
 
-			if opt in ('-o', '--output'):
-				rx_cli_option.mkfile_path = value
+			if opt in ('o', '-o', '--output'):
+				OptionState.mkfile_path = value
 
-			if opt in ('-e', '--exec'):
-				rx_cli_option.mk_exec = value
+			if opt in ('e', '-e', '--exec'):
+				OptionState.mk_exec = value
 
-			if opt in ('-b', '--build'):
-				rx_cli_option.flag_call_make = True
-				rx_cli_option.mk_jobs = int(value)
+			if opt in ('b', '-b', '--build'):
+				OptionState.flag_call_make = True
+				OptionState.mk_jobs = int(value)
 			
-			if opt in ('-l', '--log'):
-				rx_cli_option.flag_log = True
+			if opt in ('l', '-l', '--log'):
+				OptionState.flag_log = True
 
-			if opt in ('-n', '--just-print'):
-				rx_cli_option.flag_just_print = True
+			if opt in ('n', '-n', '--just-print'):
+				OptionState.flag_just_print = True
 
-			if opt in ('-c', '--check-compiler'):
-				rx_cli_option.flag_check_compiler = True
+			if opt in ('c', '-c', '--check-compiler'):
+				OptionState.flag_check_compiler = True
 	
 		# CLI Options prasing is complete, then configuration file prasing will be started
 
 		# read the .yml and transform it to python structure
 		# if '-f' or '--file' was read in CLI, the default configuration path will be re-written by user input
 		# the default encoding of .yml is UTF-8
-		true_config_path = find_default_configuration() if rx_cli_option.config_path == '' else rx_cli_option.config_path
+		true_config_path = utility.find_default_configuration() if OptionState.config_path == '' else OptionState.config_path
 		with open(true_config_path, encoding='UTF-8', mode='r') as f:
 			primary_config_data = yml.safe_load(f)
 
