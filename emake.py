@@ -205,11 +205,45 @@ class Makefile:
 		self.r_extra_compile = [[], [], False]			# property 'extraCompiler' will be put in a list
 		self.r_platform = [None, None, False]			# property 'platform' to assitant some operations
 		self.r_output = [None, 'main', True]			# property 'output' to sepcify output filename, default is 'main'
-		self.r_mode = [None, None, False]				# property 'output' to sepcify compiling mode
+		self.r_mode = ['exec', None, False]				# property 'output' to sepcify compiling mode
 
+	def compile_target_praser(self):
+		'''
+		to get compiling mode and target
+		'''
+		# read primary data 
+		if 'platform' in self.config:
+			self.r_platform[0] = self.config['platform']
+			self.r_platform[2] = True
 
-	def compile_mode_praser(self):
-		pass
+		if 'mode' in self.config:
+			self.r_mode[0] = self.config['mode']
+			self.r_mode[2] = True
+
+		if 'output' in self.config:
+			self.r_output[0] = self.config['output']
+			self.r_output[2] = True
+
+		if 'int' in self.config:
+			self.r_int_dir[0] = self.config['int']
+			self.r_int_dir[2] = True
+
+		# prasing the target filename
+		if self.r_mode[0] == 'exec' and self.r_platform == 'win32':
+			self.r_output[1] = self.r_output[0] + '.exe'
+
+		if self.r_mode[0] == 'lib':
+			self.r_output[1] = 'lib' + self.r_output[0] + '.a'
+
+		if self.r_mode[0] == 'dll':
+			if self.r_platform[0] == 'win32':
+				self.r_output[1] = 'lib' + self.r_output[0] + '.a.dll'
+			else:
+				self.r_output[1] = 'lib' + self.r_output[0] + '.so'
+
+		# copy project root path structure
+		if path(self.r_int_dir[0]) not in (path('./'), path('.vscode'), path('.git'), path('.svn')):
+			utility.copy_root_structure(self.r_int_dir[0])
 
 	def default_compiler_praser(self):
 		'''
@@ -324,7 +358,15 @@ class utility:
 		'''
 		copy structure of project root to output directory(the value of property 'int')
 		'''
-		pass
+		# scan all sub-directories in the root path of project
+		sub_dirs = [str(x) for x in list(path('./').glob('**'))]
+
+		# delete the .git/.svn/.vscode and the out_dir itself
+		sub_dirs = filter(lambda x : not (x.startswith('git') or x.startswith('.svn') or x.startswith('.vscode')) and x not in ('.', output_dir), sub_dirs)
+		
+		# build TRIE and do DFS traversing
+		# use the TRIE to find out longest prefixes, and use mkdir command to build them in output_dir
+		
 	
 	@staticmethod
 	def usage():
@@ -395,16 +437,15 @@ if __name__ == '__main__':
 		with open(true_config_path, encoding='UTF-8', mode='r') as f:
 			primary_config_data = yml.safe_load(f)
 
+		# change cwd/pwd accroding to true_config_path
+		os.chdir(path(true_config_path).parent)
+		utility.log("Info: Current Working Folder is ", os.getcwd())
+
 		# instantiate class Makefile to receive and prase configuration
 		rx_mkfile_generator = Makefile(primary_config_data) 
 
 		# prase the primary configuration data
 		rx_mkfile_generator.default_compiler_praser()
-
-		print(1926)
-
-
-
 
 	except EasyMakeBaseException as e:
 		print(repr(e))
